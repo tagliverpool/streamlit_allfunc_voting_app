@@ -1008,3 +1008,4 @@ google-auth-httplib2>=0.1.1
                 </pre>
             </div>
             """, unsafe_allow_html=True)
+            # 最終的な再デプロイのための変更 (2025/10/08)
