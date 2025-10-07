@@ -69,6 +69,7 @@ class Database:
         self.init_database()
     
     def get_connection(self):
+        # Streamlit Cloudで動作させるため、check_same_thread=Falseを設定
         return sqlite3.connect(self.db_path, check_same_thread=False)
     
     def init_database(self):
@@ -492,7 +493,7 @@ def generate_voter_id(google_id):
     return hashlib.sha256(f"{google_id}_{datetime.now().date().isoformat()}".encode()).hexdigest()[:16]
 
 def get_fact_check_response(query):
-    """ファクトチェック"""
+    """ファクトチェック（モック）"""
     mock_responses = {
         '消費税': {
             'answer': '消費税率10%は2019年10月に導入されました。軽減税率により食品等は8%が維持されています。',
@@ -526,6 +527,7 @@ if 'user' not in st.session_state:
 
 # =============================================
 # メインアプリケーション
+# Google OAuth 2.0 認証を実装するために、このブロックを修正します
 # =============================================
 
 if not st.session_state.user:
@@ -539,35 +541,68 @@ if not st.session_state.user:
         
         st.markdown("""
         <div class="info-box">
-            <h4>🔐 ログイン</h4>
-            <p>本番環境ではGoogle OAuth 2.0による認証を実装します</p>
+            <h4>🔐 Googleアカウントでログイン</h4>
+            <p>Google OAuth 2.0認証を使用してログインしてください。</p>
         </div>
         """, unsafe_allow_html=True)
         
-        with st.expander("📝 ログイン", expanded=True):
-            email = st.text_input("メールアドレス", placeholder="example@email.com")
-            name = st.text_input("ユーザー名", placeholder="名前を入力してください")
+        # -----------------------------------------------------------
+        # Google OAuth 2.0 認証の実際の呼び出し
+        # -----------------------------------------------------------
+        
+        try:
+            # 認証接続を取得 (secrets.tomlの[google_oauth]セクションを自動で利用)
+            conn = st.connection('google_oauth', type='oauth')
             
-            col_btn1, col_btn2 = st.columns(2)
+            # ログインURLを生成
+            login_url = conn.get_authorize_url(
+                # 認証後に取得したい情報 (メールアドレスとプロファイル情報)
+                scopes=['openid', 'email', 'profile']
+            )
             
-            with col_btn1:
-                if st.button("🔐 ログイン", use_container_width=True, type="primary"):
-                    if email and name:
-                        google_id = hashlib.md5(email.encode()).hexdigest()
-                        voter_id = generate_voter_id(google_id)
-                        user = db.create_or_update_user(google_id, email, name, voter_id)
-                        st.session_state.user = user
-                        st.rerun()
-                    else:
-                        st.error("メールアドレスとユーザー名を入力してください")
+            # ログインボタンの表示
+            st.link_button("🔐 Googleアカウントでログイン", url=login_url, type="primary", use_container_width=True)
             
-            with col_btn2:
-                if st.button("👑 管理者", use_container_width=True):
-                    google_id = 'admin_001'
-                    voter_id = generate_voter_id(google_id)
-                    user = db.create_or_update_user(google_id, 'admin@example.com', '管理者', voter_id, is_admin=True)
-                    st.session_state.user = user
-                    st.rerun()
+        except Exception as e:
+            # secrets.tomlの設定に問題がある場合
+            st.error("OAuth設定エラー: secrets.tomlに[google_oauth]セクションが正しく設定されているか確認してください。")
+            # 開発中は詳細を表示
+            # st.exception(e) 
+
+        # -----------------------------------------------------------
+        # リダイレクト後のユーザー情報処理 (ログイン後の処理)
+        # -----------------------------------------------------------
+        
+        # URLのクエリパラメータに認証コードが存在するか確認
+        if 'code' in st.query_params:
+            try:
+                # トークンを取得し、ユーザー情報をフェッチ
+                user_info = conn.extract_user_info(st.query_params)
+                
+                # ユーザー情報の取得
+                google_id = user_info['sub']
+                email = user_info['email']
+                name = user_info['name']
+                
+                # 管理者権限のチェック
+                try:
+                    # secrets.tomlの[admin]セクションからメールアドレスリストを取得
+                    admin_emails = st.secrets['admin']['emails']
+                    is_admin = email in admin_emails
+                except (KeyError, AttributeError):
+                    is_admin = False # 設定がない場合は管理者ではない
+                
+                # データベース処理
+                voter_id = generate_voter_id(google_id)
+                user = db.create_or_update_user(google_id, email, name, voter_id, is_admin=is_admin)
+                
+                # セッションにユーザー情報を保存してリダイレクト
+                st.session_state.user = user
+                st.rerun()
+
+            except Exception as e:
+                st.error("認証情報の取得中にエラーが発生しました。再度ログインを試みてください。")
+                st.info("認証コードがURLに残っている可能性があります。ページを更新して再度ログインしてください。")
         
         st.markdown("---")
         
