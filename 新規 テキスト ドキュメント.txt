@@ -1,0 +1,21 @@
+
+
+生成AIエンジニアコースのもくもく会〈アーカイブ動画
+
+03_Claudeアーティファクトでインタラクティブな成果物を作ってみよう
+無料登録で成果物作成＆更新重ねてたら更新中に、”セッション制限に達しました ∙ 13:00にリセット”のメッセージが出てしまったのですが、
+セッションがリセットされるとチャット上の成果物作成＆更新再開できるのでしょうか
+
+
+プロジェクト＞	既存のプロジェクト名Gemini API　ID:gen-lang-client-0688447010
+				プロジェクト名Votingapp　ID:votingapp-474412
+				
+				
+# Google OAuth 2.0設定
+[google_oauth]
+client_id = "votingapp-474412.apps.googleusercontent.com"
+client_secret = "your-client-secret"
+
+# 管理者メールアドレス
+[admin]
+emails = ["tagliverpool@gmail.com"]
