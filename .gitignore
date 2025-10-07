@@ -205,3 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# .gitignore の末尾に追加
+# Streamlit Secretsファイルを除外
+.streamlit/secrets.toml
